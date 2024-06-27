@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="favicon.png" type="image/png"> 
+  <title>Early Stakers</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #fff;
+    }
+    .loader {
+      width: 0px;
+      height: 0px;
+      margin: 50vh auto;
+      position: relative;
+    }
+    .loader > div {
+      width: 6px;
+      height: 20px;
+      position: absolute;
+      left: -10px;
+      bottom: 15px;
+      border-radius: 5px;
+      transform-origin: 10px 35px;
+      transform: rotate(0deg);
+      animation: loader 0.8s infinite;
+    }
+    .loader > div:nth-child(2) {
+      transform: rotate(45deg);
+      animation-delay: 0.1s;
+    }
+    .loader > div:nth-child(3) {
+      transform: rotate(90deg);
+      animation-delay: 0.2s;
+    }
+    .loader > div:nth-child(4) {
+      transform: rotate(135deg);
+      animation-delay: 0.3s;
+    }
+    .loader > div:nth-child(5) {
+      transform: rotate(180deg);
+      animation-delay: 0.4s;
+    }
+    .loader > div:nth-child(6) {
+      transform: rotate(225deg);
+      animation-delay: 0.5s;
+    }
+    .loader > div:nth-child(7) {
+      transform: rotate(270deg);
+      animation-delay: 0.6s;
+    }
+    .loader > div:nth-child(8) {
+      transform: rotate(315deg);
+      animation-delay: 0.7s;
+    }
+    @keyframes loader {
+      0% {
+        background: transparent;
+        left: -10px;
+        transform-origin: 10px 35px;
+      }
+      30% {
+        background: #000;
+      }
+      100% {
+        background: transparent;
+        left: 10px;
+        transform-origin: -10px 35px;
+      }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      color: #333;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #000;
+      text-align: left;
+    }
+    th {
+      background-color: #000;
+      color: #fff;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    tbody tr:nth-child(odd) {
+      background-color: #e0e0e0;
+    }
+    tbody tr:hover {
+      background-color: #b3d9ff; /* Light blue highlight on hover */
+    }
+    .header, .table-container, .summary-container {
+      visibility: hidden;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap; /* Add this line to allow wrapping */
+    }
+    .header img {
+      margin-right: 10px;
+      width: 50px; /* Adjust the size as needed */
+      height: auto;
+    }
+    .metrics {
+      display: flex;
+      flex-direction: column;
+      text-align: right;
+    }
+    .metrics div {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .metrics .label {
+      min-width: 150px; /* Adjust the width as needed to align the labels */
+      text-align: left;
+    }
+    .summary-container {
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column; /* Stack the header items vertically */
+        align-items: flex-start;
+      }
+      .metrics {
+        text-align: left;
+        margin-top: 10px; /* Add some space between the header items */
+      }
+      .metrics div {
+        justify-content: flex-start; /* Align items to the start */
+      }
+      table {
+        font-size: 0.9em; /* Adjust font size for smaller screens */
+      }
+      th, td {
+        padding: 8px; /* Adjust padding for smaller screens */
+      }
+    }
+  </style>
+  <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
+</head>
+<body>
+  <div class="loader" id="loader">
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>
+  <div class="header" id="header">
+    <div>
+      <img src="step-2.png" alt="Logo">
+      <h1>Early Stakers</h1>
+    </div>
+    <div class="metrics" id="metrics">
+      <div><span class="label"><strong>Total PPY Earned:</strong></span> <span id="total-rewards">Calculating...</span></div>
+      <div><span class="label"><strong>Total PPY Burned:</strong></span> <span id="total-burned">Calculating...</span></div>
+    </div>
+  </div>
+  <div class="table-container" id="table-container">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Staker Address</th>
+          <th>PLS Staked</th>
+          <th>Staking Start Time</th>
+          <th>Reward Earned</th>
+        </tr>
+      </thead>
+      <tbody id="stakers">
+        <tr>
+          <td colspan="5">Loading...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    async function fetchABI() {
+      const response = await fetch('EarlyStaking.json');
+      const abi = await response.json();
+      return abi;
+    }
+
+    async function createProvider() {
+      const primaryProviderUrl = 'https://evex.cloud/pulserpc';
+      const backupProviderUrl = 'https://rpc-pulsechain.g4mm4.io';
+      let provider;
+
+      try {
+        provider = new ethers.providers.JsonRpcProvider(primaryProviderUrl);
+        await provider.getBlockNumber(); // Check if provider is working
+      } catch (error) {
+        console.error('Primary provider failed, switching to backup provider:', error);
+        provider = new ethers.providers.JsonRpcProvider(backupProviderUrl);
+      }
+
+      return provider;
+    }
+
+    async function fetchAllEarlyStakers() {
+      const provider = await createProvider();
+      const contractAddress = '0x9ee215E7339A01234B2f35A0403c57b7896c14C7';
+      const abi = await fetchABI();
+      const contract = new ethers.Contract(contractAddress, abi, provider);
+
+      let earlyStakers = [];
+      const batchSize = 50; 
+      let offset = 0;
+
+      while (true) {
+        const result = await contract.getEarlyStakers(offset, batchSize);
+        earlyStakers = earlyStakers.concat(result);
+        offset += batchSize;
+
+        if (result.length < batchSize) {
+          break;
+        }
+      }
+
+      return earlyStakers;
+    }
+
+    async function fetchStakerDetails(index, provider, contract) {
+      const stakerDetails = await contract.getEarlyStaker(index);
+      return stakerDetails;
+    }
+
+    async function fetchRewardEarned(stakerAddr, provider, contract) {
+      const rewardEarned = await contract.rewardEarned(stakerAddr);
+      return ethers.utils.formatUnits(rewardEarned, 18);
+    }
+
+    fetchAllEarlyStakers()
+      .then(async earlyStakers => {
+        const stakersDiv = document.getElementById('stakers');
+        const loader = document.getElementById('loader');
+        const header = document.getElementById('header');
+        const tableContainer = document.getElementById('table-container');
+        const totalRewardsElement = document.getElementById('total-rewards');
+        const totalBurnedElement = document.getElementById('total-burned');
+        stakersDiv.innerHTML = '';
+
+        const provider = await createProvider();
+        const contractAddress = '0x9ee215E7339A01234B2f35A0403c57b7896c14C7';
+        const abi = await fetchABI();
+        const contract = new ethers.Contract(contractAddress, abi, provider);
+
+        const promises = earlyStakers.map(async (stakerAddr, index) => {
+          const stakerDetails = await fetchStakerDetails(index, provider, contract);
+          const rewardEarned = await fetchRewardEarned(stakerDetails.stakerAddr, provider, contract);
+          return { stakerDetails, rewardEarned };
+        });
+
+        const results = await Promise.all(promises);
+        let totalRewards = ethers.BigNumber.from(0);
+        let amountBurned = ethers.BigNumber.from(0);
+
+        results.forEach((result, i) => {
+          const { stakerDetails, rewardEarned } = result;
+          const plsStaked = ethers.utils.formatUnits(stakerDetails.plsStaked, 18);
+          const stakingStartTime = stakerDetails.stakingStartTime * 1000 === 0 ? 'N/A' : new Date(stakerDetails.stakingStartTime * 1000).toLocaleString();
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${stakerDetails.stakerAddr}</td>
+            <td>${parseFloat(plsStaked).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>${stakingStartTime}</td>
+            <td>${parseFloat(rewardEarned).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          `;
+          stakersDiv.appendChild(row);
+
+          const rewardBigNumber = ethers.utils.parseUnits(rewardEarned, 18);
+          totalRewards = totalRewards.add(rewardBigNumber);
+
+          if (stakingStartTime === 'N/A') {
+            amountBurned = amountBurned.add(rewardBigNumber);
+          }
+        });
+
+        totalRewardsElement.textContent = parseFloat(ethers.utils.formatUnits(totalRewards, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' PPY';
+        totalBurnedElement.textContent = parseFloat(ethers.utils.formatUnits(amountBurned, 18)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' PPY';
+
+        loader.style.display = 'none';
+        header.style.visibility = 'visible';
+        tableContainer.style.visibility = 'visible';
+        stakersDiv.style.display = 'table-row-group';
+      })
+      .catch(error => {
+        const stakersDiv = document.getElementById('stakers');
+        const loader = document.getElementById('loader');
+        const header = document.getElementById('header');
+        const tableContainer = document.getElementById('table-container');
+        const summaryContainer = document.getElementById('summary-container');
+        stakersDiv.innerHTML = `<tr><td colspan="5">Error fetching early stakers: ${error}</td></tr>`;
+        loader.style.display = 'none';
+        header.style.visibility = 'visible';
+        tableContainer.style.visibility = 'visible';
+        summaryContainer.style.visibility = 'visible';
+        stakersDiv.style.display = 'table-row-group';
+      });
+
+  </script>
+</body>
+</html>
